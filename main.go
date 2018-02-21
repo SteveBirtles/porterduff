@@ -10,7 +10,9 @@ import (
 
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/pixelgl"
-	"golang.org/x/image/colornames"
+	"github.com/faiface/beep/mp3"
+	"github.com/faiface/beep/speaker"
+	"pixel/imdraw"
 )
 
 func loadPicture(path string) (pixel.Picture, error) {
@@ -36,60 +38,46 @@ func run() {
 		panic(err)
 	}
 
-	plasma, err := loadPicture("plasma.png")
-	if err != nil {
-		panic(err)
-	}
-
-	star, err := loadPicture("star.png")
-	if err != nil {
-		panic(err)
-	}
-
 	var (
-		frames = 0
-		second = time.Tick(time.Second)
+		frames= 0
+		second= time.Tick(time.Second)
 	)
+
+	music, _ := os.Open("song.mp3")
+	s, format, _ := mp3.Decode(music)
+	speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
+	speaker.Play(s)
+
+	imd := imdraw.New(nil)
+
+	const millisPerBeat = 60000 / 126
+
+	pulse := 0.0
+
+	ticker := time.NewTicker(time.Millisecond * millisPerBeat)
+	go func() {
+		for range ticker.C {
+			pulse = 1.0
+		}
+	}()
 
 	for !win.Closed() {
 
-		//win.Clear(pixel.RGBA{0,0,0,0})
-		win.Clear(colornames.Maroon)
-		win.SetMatrix(pixel.IM)
+		pulse *= 0.999
 
+		imd.Clear()
+		imd.SetMatrix(pixel.IM.Scaled(win.Bounds().Center(), pulse))
+		imd.Color = pixel.RGB(1, 0, 0)
+		imd.Push(pixel.V(200, 100))
+		imd.Color = pixel.RGB(0, 1, 0)
+		imd.Push(pixel.V(800, 100))
+		imd.Color = pixel.RGB(0, 0, 1)
+		imd.Push(pixel.V(500, 700))
+		imd.Polygon(0)
 
-		s1 := pixel.NewSprite(star, star.Bounds())
-		s2 := pixel.NewSprite(plasma, plasma.Bounds())
+		win.Clear(pixel.RGBA{0, 0, 0, 0})
 
-		for x := 0; x < 7; x++ {
-			for y := 0; y < 5; y++ {
-
-				switch x {
-				case 0: win.SetComposeMethod(pixel.ComposeOver)
-				case 1: win.SetComposeMethod(pixel.ComposeRover)
-				case 2: win.SetComposeMethod(pixel.ComposeOut)
-				case 3: win.SetComposeMethod(pixel.ComposeIn)
-				case 4: win.SetComposeMethod(pixel.ComposeOut)
-				case 5: win.SetComposeMethod(pixel.ComposeRin)
-				case 6: win.SetComposeMethod(pixel.ComposeRout)
-				}
-
-				s1.Draw(win, pixel.IM.Moved(pixel.V(90.0 + float64(x)*140, 110.0 + float64(y)*140)))
-
-				switch y {
-				case 0: win.SetComposeMethod(pixel.ComposeXor)
-				case 1: win.SetComposeMethod(pixel.ComposeRover)
-				case 2: win.SetComposeMethod(pixel.ComposeOut)
-				case 3: win.SetComposeMethod(pixel.ComposeIn)
-				case 4: win.SetComposeMethod(pixel.ComposeOut)
-				case 5: win.SetComposeMethod(pixel.ComposeRin)
-				case 6: win.SetComposeMethod(pixel.ComposeRout)
-				}
-
-				s2.Draw(win, pixel.IM.Moved(pixel.V(90.0 + float64(x)*140, 110.0 + float64(y)*140)))
-
-			}
-		}
+		imd.Draw(win)
 
 		win.Update()
 
